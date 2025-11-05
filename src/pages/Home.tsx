@@ -37,6 +37,33 @@ const Home = () => {
     },
   });
 
+  const { data: bestRatedProducts, isLoading: bestRatedLoading } = useQuery({
+    queryKey: ['best-rated-products', language],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, product_translations(*)')
+        .order('rating', { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: bestSellingProducts, isLoading: bestSellingLoading } = useQuery({
+    queryKey: ['best-selling-products', language],
+    queryFn: async () => {
+      // approximate best-selling by reviews_count (proxy for popularity)
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, product_translations(*)')
+        .order('reviews_count', { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: stores, isLoading: storesLoading } = useQuery({
     queryKey: ['stores', language],
     queryFn: async () => {
@@ -127,13 +154,15 @@ const Home = () => {
       {/* Latest Products */}
       <section className="mb-12">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-3">Latest Products</h2>
+          <h2 className="text-3xl font-bold mb-3">{t('latest_products')}</h2>
           <div className="flex items-center justify-center gap-3 text-sm">
             <span className="text-muted-foreground">
-              Showing {featuredProducts?.length || 0} of 12 products
+              {t('showing_of_products')
+                .replace('{count}', String(featuredProducts?.length || 0))
+                .replace('{total}', '12')}
             </span>
             <Link to="/shop" className="flex items-center gap-1 text-primary hover:underline font-medium">
-              View more <ArrowRight className="h-4 w-4" />
+              {t('viewAll')} <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -143,6 +172,101 @@ const Home = () => {
                 <Skeleton key={i} className="h-96 rounded-lg" />
               ))
             : featuredProducts?.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  slug={product.slug}
+                  name={getTranslation(product.product_translations, 'Product')}
+                  price={Number(product.price)}
+                  originalPrice={product.original_price ? Number(product.original_price) : undefined}
+                  imageUrl={product.image_url}
+                  rating={Number(product.rating)}
+                  reviewsCount={product.reviews_count}
+                  stock={product.stock}
+                  isFeatured={product.is_featured}
+                />
+              ))}
+        </div>
+      </section>
+
+      {/* Our Specifications */}
+      <section className="my-12">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold mb-3">{t('our_specifications')}</h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            {t('spec_intro') || t('footer_description')}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center p-6 rounded-lg border">
+            <h3 className="text-lg font-semibold mb-2">{t('spec_free_shipping_title')}</h3>
+            <p className="text-sm text-muted-foreground">{t('spec_free_shipping_desc')}</p>
+          </div>
+
+          <div className="text-center p-6 rounded-lg border">
+            <h3 className="text-lg font-semibold mb-2">{t('spec_easy_return_title')}</h3>
+            <p className="text-sm text-muted-foreground">{t('spec_easy_return_desc')}</p>
+          </div>
+
+          <div className="text-center p-6 rounded-lg border">
+            <h3 className="text-lg font-semibold mb-2">{t('spec_support_title')}</h3>
+            <p className="text-sm text-muted-foreground">{t('spec_support_desc')}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Best Rated Products */}
+      <section className="mb-12">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold mb-3">{t('best_products')}</h2>
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <Link to="/shop" className="flex items-center gap-1 text-primary hover:underline font-medium">
+              {t('viewAll')} <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          {bestRatedLoading
+            ? Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-96 rounded-lg" />
+              ))
+            : bestRatedProducts?.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  slug={product.slug}
+                  name={getTranslation(product.product_translations, 'Product')}
+                  price={Number(product.price)}
+                  originalPrice={product.original_price ? Number(product.original_price) : undefined}
+                  imageUrl={product.image_url}
+                  rating={Number(product.rating)}
+                  reviewsCount={product.reviews_count}
+                  stock={product.stock}
+                  isFeatured={product.is_featured}
+                />
+              ))}
+        </div>
+      </section>
+
+      {/* Best Selling Products */}
+      <section className="mb-12">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold mb-3">{t('best_selling')}</h2>
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <Link to="/shop" className="flex items-center gap-1 text-primary hover:underline font-medium">
+              {t('viewAll')} <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          {bestSellingLoading
+            ? Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-96 rounded-lg" />
+              ))
+            : bestSellingProducts?.map((product) => (
                 <ProductCard
                   key={product.id}
                   id={product.id}

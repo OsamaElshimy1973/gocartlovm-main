@@ -13,7 +13,8 @@ const SellerDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && (!user || !hasRole('seller'))) {
+    // Require an approved seller role to access the dashboard.
+    if (!authLoading && (!user || !hasRole('seller_approved'))) {
       navigate('/auth');
     }
   }, [user, hasRole, authLoading, navigate]);

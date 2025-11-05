@@ -35,12 +35,23 @@ const Header = () => {
               <Link to="/shop" className="text-sm font-medium hover:text-primary transition-colors">
                 {t('shop')}
               </Link>
-              <Link to="/stores" className="text-sm font-medium hover:text-primary transition-colors">
-                Seller
-              </Link>
-              <Link to="/account" className="text-sm font-medium hover:text-primary transition-colors">
-                Admin
-              </Link>
+              {/* Show Seller link only to approved sellers, otherwise show Become a Seller */}
+              {hasRole('seller_approved') ? (
+                <Link to="/stores" className="text-sm font-medium hover:text-primary transition-colors">
+                  {t('stores')}
+                </Link>
+              ) : (
+                <Link to="/create-store" className="text-sm font-medium hover:text-primary transition-colors">
+                  {t('become_seller')}
+                </Link>
+              )}
+
+              {/* Show Admin link only to admins */}
+              {hasRole('admin') && (
+                <Link to="/account" className="text-sm font-medium hover:text-primary transition-colors">
+                  Admin
+                </Link>
+              )}
             </nav>
 
             <div className="flex-1 max-w-lg hidden md:block">
@@ -48,7 +59,7 @@ const Header = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search products"
+                  placeholder={t('search')}
                   className="pl-10 rounded-full"
                 />
               </div>
@@ -58,9 +69,9 @@ const Header = () => {
               <LanguageSwitcher />
               
               <Link to="/cart">
-                <Button variant="ghost" className="relative gap-2">
+                  <Button variant="ghost" className="relative gap-2">
                   <ShoppingCart className="h-5 w-5" />
-                  <span className="text-sm font-medium">Cart</span>
+                  <span className="text-sm font-medium">{t('cart')}</span>
                   <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-xs text-accent-foreground flex items-center justify-center">
                     0
                   </span>
@@ -76,28 +87,28 @@ const Header = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => navigate('/account')}>
-                      My Account
+                      {t('manage_profile')}
                     </DropdownMenuItem>
-                    {hasRole('seller') && (
+                    {hasRole('seller_approved') && (
                       <DropdownMenuItem onClick={() => navigate('/seller')}>
-                        Seller Dashboard
+                        {t('seller_dashboard')}
                       </DropdownMenuItem>
                     )}
                     {hasRole('admin') && (
                       <DropdownMenuItem onClick={() => navigate('/admin')}>
-                        Admin Dashboard
+                        {t('admin_dashboard')}
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={signOut}>
                       <LogOut className="mr-2 h-4 w-4" />
-                      Sign Out
+                      {t('logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
                 <Link to="/auth">
                   <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full">
-                    Login
+                    {t('login')}
                   </Button>
                 </Link>
               )}
