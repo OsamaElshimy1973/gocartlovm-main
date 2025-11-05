@@ -54,7 +54,7 @@ const Footer = () => {
                 <li><Link to="/privacy" className="text-muted-foreground hover:text-[#10b981] transition-colors">Privacy Policy</Link></li>
                 <li><Link to="/membership" className="text-muted-foreground hover:text-[#10b981] transition-colors">Become Plus Member</Link></li>
                 {user ? (
-                  <li><Link to="/seller/create-store" className="text-muted-foreground hover:text-[#10b981] transition-colors">Create Your Store</Link></li>
+                  <li><Link to="/create-store" className="text-muted-foreground hover:text-[#10b981] transition-colors">Create Your Store</Link></li>
                 ) : (
                   <li><Link to="/auth" className="text-muted-foreground hover:text-[#10b981] transition-colors">Create Your Store</Link></li>
                 )}

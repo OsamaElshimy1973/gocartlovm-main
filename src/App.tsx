@@ -39,8 +39,8 @@ const App = () => (
                 <Route path="/account" element={<Account />} />
               </Route>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/create-store" element={<CreateStore />} />
               <Route path="/seller" element={<SellerDashboard />} />
-              <Route path="/seller/create-store" element={<CreateStore />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/supabase-debug" element={<SupabaseDebug />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

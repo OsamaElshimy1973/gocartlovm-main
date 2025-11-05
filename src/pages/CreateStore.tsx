@@ -7,29 +7,42 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Upload } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+
+interface FormData {
+  name_en: string;
+  description_en: string;
+  name_ar: string;
+  description_ar: string;
+}
 
 const CreateStore = () => {
   const { user, hasRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    username: '',
-    // support bilingual fields
+  const { language } = useLanguage();
+  
+  const [formData, setFormData] = useState<FormData>({
     name_en: '',
     description_en: '',
     name_ar: '',
     description_ar: '',
-    email: '',
-    contactNumber: '',
-    address: '',
   });
 
   useEffect(() => {
-    if (!authLoading && (!user || !hasRole('seller'))) {
+    if (!authLoading && !user) {
       navigate('/auth');
+      return;
+    }
+
+    // Redirect if user is already a pending or approved seller
+    if (!authLoading && user) {
+      if (hasRole('seller_approved')) {
+        navigate('/seller');
+      } else if (hasRole('seller_pending')) {
+        navigate('/seller');
+      }
     }
   }, [user, hasRole, authLoading, navigate]);
 
@@ -47,86 +60,28 @@ const CreateStore = () => {
         throw new Error('Store name is required in at least one language');
       }
 
-      // Check if slug is available
-      const { data: existingStore, error: slugCheckError } = await supabase
-        .from('stores')
-        .select('id')
-        .eq('slug', formData.username)
-        .maybeSingle();
-
-      if (slugCheckError) throw slugCheckError;
-      if (existingStore) throw new Error('Store username is already taken');
-
-      // Create store row with all fields
-      const { data: storeData, error: storeError } = await supabase
-        .from('stores')
-        .insert({
-          slug: formData.username,
-          user_id: user.id,
-          email: formData.email,
-          contact_number: formData.contactNumber,
-          address: formData.address
-        })
-        .select()
-        .single();
-
-      if (storeError) throw storeError;
-      if (!storeData) throw new Error('Failed to create store');
-
-      const translationsToInsert: any[] = [];
-      if (formData.name_en || formData.description_en) {
-        translationsToInsert.push({
-          store_id: storeData.id,
-          language_code: 'en',
-          name: formData.name_en || formData.name_ar || formData.username,
-          description: formData.description_en || null,
+      // Apply for seller status
+      const { error: applicationError } = await supabase
+        .rpc('apply_for_seller', {
+          store_name: formData.name_en || formData.name_ar,
+          store_description: formData.description_en || formData.description_ar
         });
-      }
-      if (formData.name_ar || formData.description_ar) {
-        translationsToInsert.push({
-          store_id: storeData.id,
-          language_code: 'ar',
-          name: formData.name_ar || formData.name_en || formData.username,
-          description: formData.description_ar || null,
-        });
-      }
 
-      // Always insert at least one translation
-      if (translationsToInsert.length === 0) {
-        throw new Error('At least one language translation is required');
-      }
-
-      const { error: transError } = await supabase
-        .from('store_translations')
-        .insert(translationsToInsert);
-
-      if (transError) throw transError;
-
-      // Verify the store was created successfully by trying to read it back
-      const { data: verifyStore, error: verifyError } = await supabase
-        .from('stores')
-        .select(`
-          *,
-          store_translations (*)
-        `)
-        .eq('id', storeData.id)
-        .single();
-
-      if (verifyError || !verifyStore) {
-        throw new Error('Failed to verify store creation. Please try again.');
-      }
+      if (applicationError) throw applicationError;
 
       toast({
-        title: 'Success',
-        description: 'Your store has been submitted for admin verification.',
+        title: 'Application Submitted',
+        description: 'Your seller application has been submitted for review. You will be notified once it is approved.',
       });
 
-      navigate('/seller/dashboard');
+      // Redirect to seller page which will show the pending status
+      navigate('/seller');
+
     } catch (error: any) {
-      console.error('Store creation error:', error);
+      console.error('Application error:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create store. Please try again.',
+        description: error.message || 'Failed to submit application. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -136,40 +91,22 @@ const CreateStore = () => {
 
   if (authLoading) return null;
 
-  const { language, t } = useLanguage();
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-4xl font-bold mb-2">{language === 'ar' ? 'إضافة متجرك' : 'Add Your Store'}</h1>
+      <h1 className="text-4xl font-bold mb-2">
+        {language === 'ar' ? 'التقدم كبائع' : 'Apply as Seller'}
+      </h1>
       <p className="text-muted-foreground mb-8">
         {language === 'ar'
-          ? 'لتصبح بائعًا على GoCart، قم بتقديم تفاصيل متجرك للمراجعة. سيتم تفعيل متجرك بعد موافقة المسؤول.'
-          : 'To become a seller on GoCart, submit your store details for review. Your store will be activated after admin verification.'}
+          ? 'لتصبح بائعًا على GoCart، يرجى تقديم معلومات متجرك للمراجعة. سيتم إخطارك بمجرد الموافقة على طلبك.'
+          : 'To become a seller on GoCart, please submit your store information for review. You will be notified once your application is approved.'}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="logo">Store Logo</Label>
-          <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary cursor-pointer transition-colors">
-            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Click to upload logo</p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
-          <Input
-            id="username"
-            type="text"
-            placeholder="Enter your store username"
-            value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="name_en">{language === 'ar' ? 'الاسم (إنجليزي)' : 'Name (English)'}</Label>
+          <Label htmlFor="name_en">
+            {language === 'ar' ? 'اسم المتجر (إنجليزي)' : 'Store Name (English)'}
+          </Label>
           <Input
             id="name_en"
             type="text"
@@ -181,7 +118,9 @@ const CreateStore = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description_en">{language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}</Label>
+          <Label htmlFor="description_en">
+            {language === 'ar' ? 'وصف المتجر (إنجليزي)' : 'Store Description (English)'}
+          </Label>
           <Textarea
             id="description_en"
             placeholder={language === 'ar' ? 'أدخل وصف المتجر بالإنجليزية' : 'Enter your store description in English'}
@@ -192,7 +131,9 @@ const CreateStore = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="name_ar">{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</Label>
+          <Label htmlFor="name_ar">
+            {language === 'ar' ? 'اسم المتجر (عربي)' : 'Store Name (Arabic)'}
+          </Label>
           <Input
             id="name_ar"
             type="text"
@@ -204,7 +145,9 @@ const CreateStore = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description_ar">{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</Label>
+          <Label htmlFor="description_ar">
+            {language === 'ar' ? 'وصف المتجر (عربي)' : 'Store Description (Arabic)'}
+          </Label>
           <Textarea
             id="description_ar"
             placeholder={language === 'ar' ? 'أدخل وصف المتجر بالعربية' : 'Enter your store description in Arabic'}
@@ -214,47 +157,16 @@ const CreateStore = () => {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="Enter your store email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="contactNumber">Contact Number</Label>
-          <Input
-            id="contactNumber"
-            type="tel"
-            placeholder="Enter your store contact number"
-            value={formData.contactNumber}
-            onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="address">Address</Label>
-          <Textarea
-            id="address"
-            placeholder="Enter your store address"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            rows={3}
-          />
-        </div>
-
         <Button
           type="submit"
-          className="w-full bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90"
+          className="w-full"
           disabled={loading}
         >
-          {loading ? 'Submitting...' : 'Submit'}
+          {loading ? (
+            language === 'ar' ? 'جارٍ التقديم...' : 'Submitting...'
+          ) : (
+            language === 'ar' ? 'تقديم الطلب' : 'Submit Application'
+          )}
         </Button>
       </form>
     </div>

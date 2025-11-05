@@ -51,7 +51,7 @@ const SellerDashboard = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold">Seller Dashboard</h1>
-        <Link to="/seller/create-store">
+        <Link to="/create-store">
           <Button className="bg-primary hover:bg-primary/90">
             <Store className="mr-2 h-4 w-4" />
             Create Store
@@ -126,7 +126,7 @@ const SellerDashboard = () => {
               <p className="text-muted-foreground mb-4">
                 Create your first store to start selling on GoCart
               </p>
-              <Link to="/seller/create-store">
+              <Link to="/create-store">
                 <Button>Create Your First Store</Button>
               </Link>
             </CardContent>
