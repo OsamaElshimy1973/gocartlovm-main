@@ -58,17 +58,24 @@ const AccountDialog: React.FC<{ open: boolean; onOpenChange: (open: boolean) => 
       };
       if (publicUrl) profileRow.avatar_url = publicUrl;
 
-      // Try upsert; if the database schema differs (missing columns) avoid including optional fields
-      let upsertError = null;
+      // Try upsert; if the database has row-level security (RLS) or different
+      // schema, the upsert may fail for the client (anon key). Don't fail the
+      // whole flow for that — continue to update the auth user metadata which
+      // ensures the frontend reflects the change. Log the error for diagnostics.
       try {
         const res = await supabase.from('profiles').upsert(profileRow);
-        upsertError = (res as any).error;
+        const upsertError = (res as any).error;
+        if (upsertError) {
+          // Common RLS error: "new row violates row-level security policy" —
+          // surface as warning but continue.
+          console.warn('profiles upsert warning:', upsertError);
+        }
       } catch (e) {
-        upsertError = e;
+        console.warn('profiles upsert failed (non-fatal):', e);
       }
-      if (upsertError) throw upsertError;
 
-      // Update auth user metadata so header/user session reflects change
+      // Update auth user metadata so header/user session reflects change. If
+      // this fails, it's a true error we should show to the user.
       const { error: updateUserError } = await supabase.auth.updateUser({ data: { full_name: profileRow.full_name, avatar_url: profileRow.avatar_url } });
       if (updateUserError) throw updateUserError;
 
