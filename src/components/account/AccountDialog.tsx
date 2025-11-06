@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const AccountDialog: React.FC<{ open: boolean; onOpenChange: (open: boolean) => void }> = ({ open, onOpenChange }) => {
   const { t } = useLanguage();
@@ -18,12 +20,64 @@ const AccountDialog: React.FC<{ open: boolean; onOpenChange: (open: boolean) => 
   const [preview, setPreview] = useState<string | null>(null);
   const [name, setName] = useState((user?.user_metadata as any)?.full_name || '');
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { toast } = useToast();
+
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
     setPreview(url);
-    // Note: storing/uploading to Supabase Storage is left as a follow-up
+    setSelectedFile(file);
+  };
+
+  const saveProfile = async () => {
+    if (!user) return;
+    try {
+      let publicUrl: string | null = null;
+
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `avatars/${user.id}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, selectedFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        publicUrl = data.publicUrl;
+      }
+
+      // Upsert into profiles table for consistency
+      // Only include columns that are expected across deployments to avoid schema cache errors
+      const profileRow: any = {
+        id: user.id,
+        full_name: name || (user.user_metadata as any)?.full_name || null,
+      };
+      if (publicUrl) profileRow.avatar_url = publicUrl;
+
+      // Try upsert; if the database schema differs (missing columns) avoid including optional fields
+      let upsertError = null;
+      try {
+        const res = await supabase.from('profiles').upsert(profileRow);
+        upsertError = (res as any).error;
+      } catch (e) {
+        upsertError = e;
+      }
+      if (upsertError) throw upsertError;
+
+      // Update auth user metadata so header/user session reflects change
+      const { error: updateUserError } = await supabase.auth.updateUser({ data: { full_name: profileRow.full_name, avatar_url: profileRow.avatar_url } });
+      if (updateUserError) throw updateUserError;
+
+      toast({ title: 'Saved', description: 'Profile updated', variant: 'default' });
+      // close dialog
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message || String(err), variant: 'destructive' });
+    }
   };
 
   return (
@@ -50,7 +104,7 @@ const AccountDialog: React.FC<{ open: boolean; onOpenChange: (open: boolean) => 
           <div className="text-sm text-accent">{t('development_mode') || 'Development mode'}</div>
         </div>
 
-        <div className="col-span-8 bg-background p-6 rounded-r-lg">
+  <div className="col-span-8 bg-background p-6 rounded-r-lg">
           {tab === 'profile' && (
             <div>
               <h4 className="text-lg font-semibold">{t('profile_details') || 'Profile details'}</h4>
@@ -99,6 +153,10 @@ const AccountDialog: React.FC<{ open: boolean; onOpenChange: (open: boolean) => 
               <div className="mt-4 text-sm text-muted-foreground">{t('manage_billing') || 'Manage your subscription and payment methods.'}</div>
             </div>
           )}
+          <div className="mt-6 flex justify-end">
+            <Button variant="default" onClick={saveProfile} className="mr-2">Save</Button>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
+          </div>
         </div>
         <DialogClose />
       </DialogContent>

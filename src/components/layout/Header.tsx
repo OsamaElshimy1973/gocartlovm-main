@@ -94,8 +94,13 @@ const Header = () => {
                     {/* User header */}
                     <div className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-muted-foreground flex items-center justify-center text-muted"> 
-                          <User className="h-6 w-6 text-muted-foreground" />
+                        <div className="h-12 w-12 rounded-full overflow-hidden bg-muted-foreground flex items-center justify-center text-muted"> 
+                          {((user.user_metadata as any)?.avatar_url) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={(user.user_metadata as any).avatar_url} alt="avatar" className="h-full w-full object-cover" />
+                          ) : (
+                            <User className="h-6 w-6 text-muted-foreground" />
+                          )}
                         </div>
                         <div>
                           <div className="font-medium">{(user.user_metadata as any)?.full_name || user.email}</div>
