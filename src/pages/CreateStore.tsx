@@ -61,11 +61,17 @@ const CreateStore = () => {
       }
 
       // Apply for seller status
-      const { error: applicationError } = await supabase
-        .rpc('apply_for_seller', {
-          store_name: formData.name_en || formData.name_ar,
-          store_description: formData.description_en || formData.description_ar
-        });
+      // The generated Supabase types may not include the RPC signature for
+      // `apply_for_seller`, which makes the `args` parameter typed as `never`.
+      // Cast the args to `any` to keep runtime behavior while removing the
+      // TypeScript overload error. For a long-term fix, add the RPC to
+      // `src/types/supabase.ts` (or regenerate types) so the RPC is typed.
+      // Use an any-cast on the client when the generated types don't include
+      // RPC signatures. This avoids the 'parameter of type never' compile error.
+      const { error: applicationError } = await (supabase as any).rpc('apply_for_seller', {
+        store_name: formData.name_en || formData.name_ar,
+        store_description: formData.description_en || formData.description_ar
+      });
 
       if (applicationError) throw applicationError;
 

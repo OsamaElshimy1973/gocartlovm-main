@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      site_texts: {
+        Row: {
+          id: string
+          key: string
+          language_code: 'en' | 'ar'
+          value: string
+          created_at: string
+          updated_at: string
+          namespace: string | null
+          type: string | null
+          context: string | null
+          author: string | null
+          version: number | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          language_code: 'en' | 'ar'
+          value: string
+          created_at?: string
+          updated_at?: string
+          namespace?: string | null
+          type?: string | null
+          context?: string | null
+          author?: string | null
+          version?: number | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          language_code?: 'en' | 'ar'
+          value?: string
+          created_at?: string
+          updated_at?: string
+          namespace?: string | null
+          type?: string | null
+          context?: string | null
+          author?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      },
       addresses: {
         Row: {
           city: string

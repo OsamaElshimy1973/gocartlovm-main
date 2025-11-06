@@ -4,7 +4,7 @@
 // file from the Supabase tooling you may want to keep the env logic
 // or re-apply it.
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import type { Database } from '../../types/supabase';
 
 // Prefer environment variables (Vite: import.meta.env) but fall back
 // to the embedded values so existing behavior remains until you

@@ -581,6 +581,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      apply_for_seller: {
+        Args: {
+          store_name: string
+          store_description: string
+        }
+        Returns: null
+      }
     }
     Enums: {
       app_role: "user" | "seller" | "admin"

@@ -31,9 +31,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId);
-    
+
+    // The generated Supabase types may treat this table as `never` if the
+    // `user_roles` table isn't present in the generated `Database` type. Cast
+    // the `data` to a known shape before mapping to avoid "property 'role'
+    // does not exist on type 'never'" TypeScript errors. For a long-term
+    // solution, ensure `src/types/supabase.ts` includes the `user_roles` table.
     if (!error && data) {
-      setRoles(data.map(r => r.role as UserRole));
+      const rows = data as Array<{ role: string }>;
+      setRoles(rows.map((r) => r.role as UserRole));
     }
   };
 

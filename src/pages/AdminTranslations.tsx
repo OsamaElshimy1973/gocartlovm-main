@@ -4,6 +4,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
+
+type TableRow = Database['public']['Tables']['site_texts']['Row'];
+type TableInsert = Database['public']['Tables']['site_texts']['Insert'];
+type DbClient = SupabaseClient<Database>;
+
+const client: DbClient = supabase;
 
 const AdminTranslations: React.FC = () => {
   const { user, hasRole, loading: authLoading } = useAuth();
@@ -17,10 +25,10 @@ const AdminTranslations: React.FC = () => {
     }
   }, [user, hasRole, authLoading, navigate]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<TableRow[]>({
     queryKey: ['site_texts_all'],
     queryFn: async () => {
-      const { data: rows, error } = await (supabase as any).from('site_texts').select('id, key, language_code, value');
+      const { data: rows, error } = await client.from('site_texts').select('*');
       if (error) throw error;
       return rows || [];
     },
@@ -32,7 +40,7 @@ const AdminTranslations: React.FC = () => {
   useEffect(() => {
     if (data) {
       const map: Record<string, { en?: string; ar?: string }> = {};
-      (data as any[]).forEach((r) => {
+      data.forEach((r) => {
         if (!map[r.key]) map[r.key] = {};
         map[r.key][r.language_code] = r.value;
       });
@@ -49,28 +57,41 @@ const AdminTranslations: React.FC = () => {
     if (!entry) return;
 
     try {
-      // upsert both en and ar values if present
-      const ops: Array<Promise<any>> = [];
+      const updates: TableInsert[] = [];
+
       if (entry.en !== undefined) {
-        ops.push(
-          (supabase as any).from('site_texts').upsert({ key, language_code: 'en', value: entry.en }, { onConflict: '(key, language_code)' }),
-        );
-      }
-      if (entry.ar !== undefined) {
-        ops.push(
-          (supabase as any).from('site_texts').upsert({ key, language_code: 'ar', value: entry.ar }, { onConflict: '(key, language_code)' }),
-        );
+        updates.push({
+          key,
+          language_code: 'en',
+          value: entry.en,
+          namespace: 'site',
+          type: 'text',
+          author: user?.email || 'system',
+        });
       }
 
-      const results = await Promise.all(ops);
-      const err = results.find((r) => r.error)?.error;
-      if (err) throw err;
+      if (entry.ar !== undefined) {
+        updates.push({
+          key,
+          language_code: 'ar',
+          value: entry.ar,
+          namespace: 'site',
+          type: 'text',
+          author: user?.email || 'system',
+        });
+      }
+
+      if (updates.length > 0) {
+        const { error } = await client.from('site_texts').upsert(updates, { onConflict: 'key,language_code' });
+        if (error) throw error;
+      }
 
       toast({ title: 'Saved', description: `Saved translations for ${key}` });
-  await queryClient.invalidateQueries({ queryKey: ['site_texts_all'] });
-    } catch (e: any) {
-      console.error(e);
-      toast({ title: 'Error', description: e.message || 'Failed to save' });
+      await queryClient.invalidateQueries({ queryKey: ['site_texts_all'] });
+    } catch (err) {
+      console.error(err);
+      const error = err as Error;
+      toast({ title: 'Error', description: error.message || 'Failed to save' });
     }
   };
 
@@ -79,7 +100,9 @@ const AdminTranslations: React.FC = () => {
   return (
     <div className="min-h-screen bg-background p-8">
       <h1 className="text-2xl font-bold mb-4">Site Translations</h1>
-      <p className="mb-6 text-sm text-muted-foreground">Edit site UI strings. Changes are saved to the database and will override built-in translations.</p>
+      <p className="mb-6 text-sm text-muted-foreground">
+        Edit site UI strings. Changes are saved to the database and will override built-in translations.
+      </p>
 
       <div className="space-y-4">
         {Object.keys(edits).map((key) => (
